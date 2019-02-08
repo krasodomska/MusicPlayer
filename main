@@ -1,0 +1,92 @@
+import pygame
+from pygame.locals import *
+
+from Mechanics.OnClickEvent import OnClickEvent
+from UI.buttons import PlayButton, PauseButton, PreviousButton, NextButton
+
+
+class MusicPlayer:
+    def __init__(self):
+
+        # flag if game is running
+        self.running = True
+        #base surf
+        self.displaySurf = None
+
+        # dimension of musicPlayer window
+        self.width = 350;
+        self.height = 400;
+
+        # info about song
+        self.songName = "Bongo Cat - We All Lift Together Fixed"
+        self.songPath = 'Music/' + self.songName
+
+        # create object for button
+        self.playButton = PlayButton()
+        self.pauseButton = PauseButton()
+        self.nextButton = PreviousButton()
+        self.previousButton = NextButton()
+
+        self.buttonsList = [self.playButton, self.pauseButton, self.nextButton, self.previousButton]
+
+        self.click = OnClickEvent()
+
+
+    def on_init(self):
+        pygame.init()
+        self.displaySurf = pygame.display.set_mode((self.height, self.width), pygame.HWSURFACE)
+        self.running = True
+
+        #loading buttons
+        for button in self.buttonsList:
+            button.loadImage()
+
+        pygame.mixer.music.load('Music/Bongo Cat - We All Lift Together Fixed.mp3')
+        pygame.mixer.music.play(0)
+
+    def on_event(self, event):
+        if event.type == QUIT:
+            self.running = False
+
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            # Set the x, y postions of the mouse click
+            x, y = event.pos
+            for button in self.buttonsList:
+                self.click.whatWasClicked = button.wasClicked(x,y)
+                if self.click.whatWasClicked == "play/pause":
+                    self.click.playMusic()
+                    print(self.click.pauseMusic)
+
+
+    def on_loop(self):
+        pass
+
+    def on_render(self):
+        # drawing buttons
+        for button in self.buttonsList:
+            if self.click.pauseMusic and button == self.pauseButton:
+                continue
+            if not self.click.pauseMusic and button == self.playButton:
+                continue
+            self.displaySurf.blit(button.image, button.drawLocation())
+
+        pygame.display.flip()
+
+    def on_cleanup(self):
+        pygame.quit()
+
+    def on_execute(self):
+        if self.on_init() == False:
+            self.running = False
+
+        while (self.running):
+            for event in pygame.event.get():
+                self.on_event(event)
+            self.on_loop()
+            self.on_render()
+        self.on_cleanup()
+
+
+if __name__ == "__main__":
+    theMusicPlayer = MusicPlayer()
+    theMusicPlayer.on_execute()
