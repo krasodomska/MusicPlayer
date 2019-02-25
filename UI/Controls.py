@@ -1,5 +1,5 @@
 import pygame
-from pygame.locals import *
+
 
 class Button:
     def __init__(self):
@@ -8,20 +8,44 @@ class Button:
         self.y = None
         self.height = 50
         self.width = 50
-        self.leftShift = 0
-        self.topShift = 0
+        self.leftShift = 180
+        self.topShift = 425
         self.name = None
 
     def loadImage(self):
         pass
 
     def wasClicked(self, mouseX, mouseY):
-        if mouseX >= self.x and mouseX <= self.x + self.width and mouseY >= self.y and self.y + self.height >= mouseY:
-            print(self.name)
-        return self.name
+        if self.x <= mouseX <= self.x + self.width and self.y <= mouseY <= self.y + self.height:
+            return self.name
 
     def drawLocation(self):
         return (self.x, self.y)
+
+
+class ControlsBox:
+    def __init__(self):
+        # create object for button
+        self.playButton = PlayButton()
+        self.pauseButton = PauseButton()
+        self.nextButton = PreviousButton()
+        self.previousButton = NextButton()
+
+        self.buttonsList = [self.playButton, self.pauseButton, self.nextButton, self.previousButton]
+
+    def loadButtons(self):
+        for button in self.buttonsList:
+            button.loadImage()
+
+    def drawButtons(self, paused, displaySurf):
+        # drawing buttons
+        for button in self.buttonsList:
+            if paused and button == self.pauseButton:
+                continue
+            if not paused and button == self.playButton:
+                continue
+            displaySurf.blit(button.image, button.drawLocation())
+
 
 class PlayButton(Button):
     def loadImage(self):
@@ -29,6 +53,7 @@ class PlayButton(Button):
         self.x = self.leftShift + self.width
         self.y = self.topShift
         self.name = 'play/pause'
+
 
 class PauseButton(Button):
     def loadImage(self):
@@ -44,6 +69,7 @@ class PreviousButton(Button):
         self.x = self.leftShift
         self.y = self.topShift
         self.name = 'previous'
+
 
 class NextButton(Button):
     def loadImage(self):

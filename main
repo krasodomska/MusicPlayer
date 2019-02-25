@@ -1,8 +1,12 @@
 import pygame
 from pygame.locals import *
-
 from Mechanics.OnClickEvent import OnClickEvent
-from UI.buttons import PlayButton, PauseButton, PreviousButton, NextButton
+from Mechanics.Song import SongsList
+from Mechanics.DirTree import DirTree
+from UI.SongInfo import SongInfo
+from UI.Controls import ControlsBox
+from UI.Animation import Animation
+from UI.Lists import Arrow
 
 
 class MusicPlayer:
@@ -10,66 +14,113 @@ class MusicPlayer:
 
         # flag if game is running
         self.running = True
-        #base surf
+        # base surf
         self.displaySurf = None
 
+        self.startTime = 0
+        self.chaoticTimer = 0
+
         # dimension of musicPlayer window
-        self.width = 350;
-        self.height = 400;
+        self.width = 900
+        self.height = 650
 
         # info about song
-        self.songName = "Bongo Cat - We All Lift Together Fixed"
-        self.songPath = 'Music/' + self.songName
+        self.songs = None
+        self.songInfo = None
+        self.controlsBox = None
+        self.click = None
+        self.dirTree = None
+        self.animation = None
+        self.arrow = None
 
-        # create object for button
-        self.playButton = PlayButton()
-        self.pauseButton = PauseButton()
-        self.nextButton = PreviousButton()
-        self.previousButton = NextButton()
+        self.whichSongIsPlaying = 0
 
-        self.buttonsList = [self.playButton, self.pauseButton, self.nextButton, self.previousButton]
-
-        self.click = OnClickEvent()
-
+        self.playingSong = None
 
     def on_init(self):
         pygame.init()
-        self.displaySurf = pygame.display.set_mode((self.height, self.width), pygame.HWSURFACE)
         self.running = True
+        self.displaySurf = pygame.display.set_mode((self.width, self.height), pygame.HWSURFACE)
 
-        #loading buttons
-        for button in self.buttonsList:
-            button.loadImage()
-
-        pygame.mixer.music.load('Music/Bongo Cat - We All Lift Together Fixed.mp3')
-        pygame.mixer.music.play(0)
+        self.songInfo = SongInfo()
+        self.dirTree = DirTree()
+        self.click = OnClickEvent()
+        self.controlsBox = ControlsBox()
+        self.songs = SongsList()
+        self.animation = Animation()
+        self.arrow = Arrow()
+        self.controlsBox.loadButtons()
+        self.animation.addNFollowers(10)
+        self.animation.addNChaoticFollowers(10, self.animation.chaoticDotList, 240)
+        self.animation.addNChaoticFollowers(10, self.animation.secondChaoticDotList, 210)
+        self.animation.addNList()
 
     def on_event(self, event):
         if event.type == QUIT:
             self.running = False
 
         if event.type == pygame.MOUSEBUTTONDOWN:
-            # Set the x, y postions of the mouse click
             x, y = event.pos
-            for button in self.buttonsList:
-                self.click.whatWasClicked = button.wasClicked(x,y)
-                if self.click.whatWasClicked == "play/pause":
-                    self.click.playMusic()
-                    print(self.click.pauseMusic)
+            if self.dirTree.goToClicked(self.dirTree.whatWasClicked(x, y)) is not None:
+                songPath = self.dirTree.goToClicked(self.dirTree.whatWasClicked(x, y))[0]
+                songName = self.dirTree.goToClicked(self.dirTree.whatWasClicked(x, y))[1]
+                self.songs.addSongToList(songName, songPath)
 
+            self.songs.nextPrevPartList(x, y)
+            self.dirTree.nextPrevPartList(x, y)
+
+            for button in self.controlsBox.buttonsList:
+                self.click.whatWasClicked = button.wasClicked(x, y)
+                if self.click.whatWasClicked == "play/pause" and len(self.songs.songList) > 0:
+                    if pygame.mixer.music.get_busy() == 0:
+                        self.playSongFromList()
+                    self.click.playMusic()
+
+                elif self.click.whatWasClicked == "next" and self.whichSongIsPlaying < len(self.songs.songList) - 1:
+                    self.whichSongIsPlaying += 1
+                    self.playSongFromList()
+                    self.click.pauseMusic = False
+
+                elif self.click.whatWasClicked == "previous" and self.whichSongIsPlaying > 0:
+                    self.whichSongIsPlaying -= 1
+                    self.playSongFromList()
+                    self.click.pauseMusic = False
 
     def on_loop(self):
-        pass
+        howFast = 5
+        chaosTime = 150
+        if pygame.time.get_ticks() - self.startTime > howFast:
+            self.animation.mainCircleMove()
+            self.startTime = pygame.time.get_ticks()
+
+        if pygame.time.get_ticks() - self.chaoticTimer > chaosTime:
+            n = 0
+            for listOfFolowingDot in self.animation.listOfFolowingDotLists:
+                self.animation.indexForChaoticCircle(self.animation.dotList[n], listOfFolowingDot)
+                n += 1
+            self.chaoticTimer = pygame.time.get_ticks()
+
+        if pygame.mixer.music.get_busy() == 0 and not self.click.pauseMusic:
+            if self.whichSongIsPlaying < len(self.songs.songList) - 1:
+                self.whichSongIsPlaying += 1
+                self.playSongFromList()
+            else:
+                self.click.pauseMusic = True
 
     def on_render(self):
-        # drawing buttons
-        for button in self.buttonsList:
-            if self.click.pauseMusic and button == self.pauseButton:
-                continue
-            if not self.click.pauseMusic and button == self.playButton:
-                continue
-            self.displaySurf.blit(button.image, button.drawLocation())
-
+        # clearscreen
+        pygame.draw.rect(self.displaySurf, (0, 0, 0), pygame.Rect(0, 0, self.width, self.height))
+        # draw something
+        self.dirTree.writeDirList(self.displaySurf)
+        self.controlsBox.drawButtons(self.click.pauseMusic, self.displaySurf)
+        self.songInfo.drawSongDuration(self.displaySurf, self.animation.frameHeight + self.animation.frameTopShift * 2,
+                                       self.animation.frameWidth)
+        self.animation.drawFrame(self.displaySurf)
+        self.arrow.drawButton(self.displaySurf, self.dirTree.dirList(self.dirTree.root), self.dirTree.listStep,
+                              self.dirTree.buttonLeftShift, self.dirTree.buttonTopShift, self.dirTree.buttonSize)
+        self.arrow.drawButton(self.displaySurf, self.songs.songList, 5,
+                              self.songs.buttonLeftShift, self.songs.buttonTopShift, self.songs.buttonSize)
+        self.songInfo.writeSongList(self.displaySurf, self.songs.printedSongList, self.whichSongIsPlaying, self.songs.startListIndex, self.songs.listStep)
         pygame.display.flip()
 
     def on_cleanup(self):
@@ -85,6 +136,10 @@ class MusicPlayer:
             self.on_loop()
             self.on_render()
         self.on_cleanup()
+
+    def playSongFromList(self):
+        pygame.mixer.music.load(self.songs.songList[self.whichSongIsPlaying].songPath)
+        pygame.mixer.music.play(0)
 
 
 if __name__ == "__main__":

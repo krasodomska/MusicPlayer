@@ -3,7 +3,7 @@ import pygame
 
 class OnClickEvent:
     def __init__(self):
-        self.pauseMusic = False;
+        self.pauseMusic = True;
         self.whatWasClicked = None
 
     def playMusic(self):
